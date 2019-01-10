@@ -1,0 +1,129 @@
+---
+title: "Air Passengers Time Series Example"
+author: "Moaeed Sajid"
+date: "09/01/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+
+library(forecast)
+data ("AirPassengers")
+```
+
+## EDA
+
+Time Series Data can be modelled using the ARIMA model.  ARIMA stands for Auto Regressive Integrated Moving Average.
+
+Auto Regression suggests that the current value is dependent on it's preceding values.  so if the current value is x(t) then the AR component is x(t-1)*a where a is the fitted co-efficient
+
+These previous terms are referred to as lag values (first, second...) which we will see later on.
+
+We will be using the Passengers dataset from the built in R forecasts library.  
+
+Model validation will be done using the Ljung-Box test
+
+```{r airpassengers}
+class("AirPassengers")
+start (AirPassengers)
+end(AirPassengers)
+frequency(AirPassengers)
+sum(is.na(AirPassengers))
+summary(AirPassengers)
+AirPassengers
+```
+
+## Plot with Trend Line using lm
+
+
+```{r echo=TRUE}
+plot(AirPassengers)
+abline(reg=lm(AirPassengers~time(AirPassengers)))
+cycle(AirPassengers)
+```
+
+## Time Series Decompostition
+
+The plot below shows the observed data, overall trend, seasonal variation and the the irregularity.  
+
+Before building a time series model the data needs to be stationary.  That is that it needs to have a constant mean and variance.
+
+```{r echo=TRUE}
+tsdata <- ts(AirPassengers, frequency = 12)
+ddata <- decompose(tsdata, type = "multiplicative")
+plot(ddata)
+#plot(ddata$trend/type/seasonal/random)
+```
+
+
+## Boxplot by Cycle
+
+Shows much more passengers during Jun-Sep
+
+```{r  echo=TRUE}
+boxplot(AirPassengers~ cycle(AirPassengers), xlab = "Date")
+```
+
+## Identify PDQ
+
+Use the auto.arima method in R to identify best values to use for ARIMA, thefirst set of brackets.  
+ 
+ - AR(p) is the number of Auto Regressive Terms
+ - I(d) the degree of differencing is how many non seasonal differences are required to achieve stationarity
+ - MA(q) is the error of the model as a combination of previous error terms e~t~
+ 
+Second set are about seasonality 
+
+```{r echo=TRUE}
+auto.arima(AirPassengers, ic = "aic", trace = TRUE)
+myFit <- auto.arima(AirPassengers)
+myFit
+```     
+
+## Checking the model
+
+Plot the...
+
+- Residuals
+
+In order to test wether the data is stationary we can use the following 2 parameters
+
+- Auto Correlation Function
+Used to determine how past and future points are related in a time series by showing how correlated points are with each other, based on on how many time steps they are separated  
+
+- Partial Auto Correlation Function
+The degree of association between two variables whilst adjusting the effect ofone or more additional variables.
+
+We can show our model to be stationary by the acf and pacf values not crossing the blue siginificance boundary lines.
+
+
+```{r echo=TRUE}
+library(tseries)
+plot.ts(myFit$residuals, main = "Residuals")
+
+acf(ts(myFit$residuals), main = "ACF Residuals")
+pacf(ts(myFit$residuals), main = "PACF Residuals")
+```     
+## Predicting the model
+
+h in forecast command will decide how far ahead to forecast
+
+
+```{r echo=TRUE}
+apForecast <- forecast(myFit, level = 95,h = 10*12)
+plot(apForecast, main = "Forecast Predictions Going Forward")
+```
+  
+  
+## Testing the model using box-test
+
+Box test below gives us p values which are relatively high showing the model to be accurate
+
+
+```{r echo=TRUE}
+Box.test(myFit$residuals, lag = 5, type = "Ljung-Box")
+Box.test(myFit$residuals, lag = 10, type = "Ljung-Box")
+Box.test(myFit$residuals, lag = 15, type = "Ljung-Box")
+
+```
